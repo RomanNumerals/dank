@@ -1,43 +1,47 @@
-defmodule Rumbl.Auth do
-  import Plug.Conn
+defmodule Rumbl.UserController do
+  use Rumbl.Web, :controller
+  alias Rumbl.User
 
-  def init(opts) do
-    Keyword.fetch!(opts, :repo)
+  plug(:authenticate when action in [:index, :show])
+
+  def index(conn, _params) do
+    users = Repo.all(Rumbl.User)
+    render(conn, "index.html", users: users)
   end
 
-  def call(conn, repo) do
-    user_id = get_session(conn, :user_id)
-    user = user_id && repo.get(Rumbl.User, user_id)
-    assign(conn, :current_user, user)
+  def show(conn, %{"id" => id}) do
+    user = Repo.get(Rumbl.User, id)
+    render(conn, "show.html", user: user)
   end
 
-  def login(conn, user) do
-    conn
-    |> assign(:current_user, user)
-    |> put_session(:user_id, user.id)
-    |> configure_session(renew: true)
+  def new(conn, _params) do
+    changeset = User.changeset(%User{})
+    render(conn, "new.html", changeset: changeset)
   end
 
-  def logout(conn) do
-    configure_session(conn, drop: true)
+  def create(conn, %{"user" => user_params}) do
+    changeset = User.registration_changeset(%User{}, user_params)
+
+    case Repo.insert(changeset) do
+      {:ok, user} ->
+        conn
+        |> Rumbl.Auth.login(user)
+        |> put_flash(:info, "#{user.name} created!")
+        |> redirect(to: user_path(conn, :index))
+
+      {:error, changeset} ->
+        render(conn, "new.html", changeset: changeset)
+    end
   end
 
-  import Comeonin.Bcrypt, only: [checkpw: 2, dummy_checkpw: 0]
-
-  def login_by_username_and_pass(conn, username, given_pass, opts) do
-    repo = Keyword.fetch!(opts, :repo)
-    user = repo.get_by(Rumbl.User, username: username)
-
-    cond do
-      user && checkpw(given_pass, user.password_hash) ->
-        {:ok, login(conn, user)}
-
-      user ->
-        {:error, :unauthorized, conn}
-
-      true ->
-        dummy_checkpw()
-        {:error, :not_found, conn}
+  defp authenticate(conn, _opts) do
+    if conn.assigns.current_user do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You must be logged in to access that page")
+      |> redirect(to: page_path(conn, :index))
+      |> halt()
     end
   end
 end
