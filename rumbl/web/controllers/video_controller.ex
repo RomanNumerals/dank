@@ -2,22 +2,9 @@ defmodule Rumbl.VideoController do
   use Rumbl.Web, :controller
 
   alias Rumbl.Video
-
-  plug(:scrub_params, "video" when action in [:create, :update])
-
   alias Rumbl.Category
 
   plug(:load_categories when action in [:new, :create, :edit, :update])
-
-  defp load_categories(conn, _) do
-    query =
-      Category
-      |> Category.alphabetical()
-      |> Category.names_and_ids()
-
-    categories = Repo.all(query)
-    assign(conn, :categories, categories)
-  end
 
   def action(conn, _) do
     apply(__MODULE__, action_name(conn), [conn, conn.params, conn.assigns.current_user])
@@ -25,13 +12,7 @@ defmodule Rumbl.VideoController do
 
   def index(conn, _params, user) do
     videos = Repo.all(user_videos(user))
-
     render(conn, "index.html", videos: videos)
-  end
-
-  def show(conn, %{"id" => id}, user) do
-    video = Repo.get!(user_videos(user), id)
-    render(conn, "show.html", video: video)
   end
 
   def new(conn, _params, user) do
@@ -60,13 +41,22 @@ defmodule Rumbl.VideoController do
     end
   end
 
+  def show(conn, %{"id" => id}, user) do
+    video = Repo.get!(user_videos(user), id)
+    render(conn, "show.html", video: video)
+  end
+
   def edit(conn, %{"id" => id}, user) do
     video = Repo.get!(user_videos(user), id)
     changeset = Video.changeset(video)
     render(conn, "edit.html", video: video, changeset: changeset)
   end
 
-  def update(conn, %{"id" => id, "video" => video_params}, user) do
+  def update(
+        conn,
+        %{"id" => id, "video" => video_params},
+        user
+      ) do
     video = Repo.get!(user_videos(user), id)
     changeset = Video.changeset(video, video_params)
 
@@ -83,6 +73,9 @@ defmodule Rumbl.VideoController do
 
   def delete(conn, %{"id" => id}, user) do
     video = Repo.get!(user_videos(user), id)
+
+    # Here we use delete! (with a bang) because we expect
+    # it to always work (and if it does not, it will raise).
     Repo.delete!(video)
 
     conn
@@ -92,5 +85,15 @@ defmodule Rumbl.VideoController do
 
   defp user_videos(user) do
     assoc(user, :videos)
+  end
+
+  defp load_categories(conn, _) do
+    query =
+      Category
+      |> Category.alphabetical()
+      |> Category.names_and_ids()
+
+    categories = Repo.all(query)
+    assign(conn, :categories, categories)
   end
 end
