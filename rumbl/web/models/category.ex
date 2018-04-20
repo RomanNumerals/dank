@@ -7,9 +7,6 @@ defmodule Rumbl.Category do
     timestamps
   end
 
-  @required_fields ~w(name)
-  @optional_fields ~w()
-
   @doc """
   Creates a changeset based on the `model` and `params`.
 
@@ -18,7 +15,7 @@ defmodule Rumbl.Category do
   """
   def changeset(model, params \\ :empty) do
     model
-    |> cast(params, @required_fields, @optional_fields)
+    |> cast(params, [:url, :title, :description, :category_id])
   end
 
   def alphabetical(query) do
