@@ -1,47 +1,50 @@
-defmodule Rumbl.UserController do
-  use Rumbl.Web, :controller
-  alias Rumbl.User
+defmodule Rumbl.Endpoint do
+  use Phoenix.Endpoint, otp_app: :rumbl
 
-  plug(:authenticate when action in [:index, :show])
+  socket("/socket", Rumbl.UserSocket)
 
-  def index(conn, _params) do
-    users = Repo.all(Rumbl.User)
-    render(conn, "index.html", users: users)
+  # Serve at "/" the static files from "priv/static" directory.
+  #
+  # You should set gzip to true if you are running phoenix.digest
+  # when deploying your static files in production.
+  plug(
+    Plug.Static,
+    at: "/",
+    from: :rumbl,
+    gzip: false,
+    only: ~w(css fonts images js favicon.ico robots.txt)
+  )
+
+  # Code reloading can be explicitly enabled under the
+  # :code_reloader configuration of your endpoint.
+  if code_reloading? do
+    socket("/phoenix/live_reload/socket", Phoenix.LiveReloader.Socket)
+    plug(Phoenix.LiveReloader)
+    plug(Phoenix.CodeReloader)
   end
 
-  def show(conn, %{"id" => id}) do
-    user = Repo.get(Rumbl.User, id)
-    render(conn, "show.html", user: user)
-  end
+  plug(Plug.RequestId)
+  plug(Plug.Logger)
 
-  def new(conn, _params) do
-    changeset = User.changeset(%User{})
-    render(conn, "new.html", changeset: changeset)
-  end
+  plug(
+    Plug.Parsers,
+    parsers: [:urlencoded, :multipart, :json],
+    pass: ["*/*"],
+    json_decoder: Poison
+  )
 
-  def create(conn, %{"user" => user_params}) do
-    changeset = User.registration_changeset(%User{}, user_params)
+  plug(Plug.MethodOverride)
+  plug(Plug.Head)
 
-    case Repo.insert(changeset) do
-      {:ok, user} ->
-        conn
-        |> Rumbl.Auth.login(user)
-        |> put_flash(:info, "#{user.name} created!")
-        |> redirect(to: user_path(conn, :index))
+  # The session will be stored in the cookie and signed,
+  # this means its contents can be read but not tampered with.
+  # Set :encryption_salt if you would also like to encrypt it.
+  plug(
+    Plug.Session,
+    store: :cookie,
+    key: "_rumbl_key",
+    signing_salt: "l4XR31zH"
+  )
 
-      {:error, changeset} ->
-        render(conn, "new.html", changeset: changeset)
-    end
-  end
-
-  defp authenticate(conn, _opts) do
-    if conn.assigns.current_user do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You must be logged in to access that page")
-      |> redirect(to: page_path(conn, :index))
-      |> halt()
-    end
-  end
+  plug(Rumbl.Router)
 end
