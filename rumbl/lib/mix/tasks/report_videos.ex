@@ -1,4 +1,4 @@
-defmodule Mix.Tasks.Output do
+defmodule Mix.Tasks.Report.Videos do
   use Mix.Task
   import Ecto.Query
   alias Rumbl.Repo
